@@ -1,44 +1,50 @@
-# Full-Stack Task Management System with Redis Caching
+# 🚀 High-Performance Task Management System (MERN + Redis)
 
-A robust, full-stack Task Management application featuring Node.js/Express, MongoDB, Redis caching, JWT authentication, and a responsive React frontend.
-
----
-
-## System Architecture & Technical Highlights
-
-1. **Backend Layer**: Clean MVC-style separation (`controllers`, `models`, `routes`, `middleware`, `config`, `utils`).
-2. **Caching Strategy (Redis)**:
-   - User-isolated cache namespace: `tasks:<userId>:*`
-   - Cache keys incorporate query parameters (page, limit, filter, search, sort).
-   - Dynamic TTL expiration (default: 300 seconds).
-   - Invalidation via non-blocking Redis `SCAN` + `DEL` on any write mutation (`POST`, `PUT`, `DELETE`).
-3. **Database Performance**:
-   - Compound indexes on MongoDB for `{ user: 1, status: 1, priority: 1, createdAt: -1 }`.
-   - Text indexes on `title` and `description` for keyword queries.
-4. **Security**:
-   - Password encryption via `bcryptjs` with salt rounds = 10.
-   - Stateless authentication with Signed JWTs transmitted via HTTP `Bearer` token headers.
-   - Strict resource isolation: users can strictly mutate and query their own records.
-5. **Frontend**:
-   - React with Vite for fast build and rendering.
-   - Axios instance with automatic request and response interceptors for Bearer auth and 401 handling.
-   - Real-time indicator revealing whether data was served from `CACHE` or `DATABASE`.
+A full-stack, production-grade Task Management Application featuring JWT-based authentication, complete CRUD operations, server-side caching via Redis, dynamic search/filter, and a responsive React dashboard.
 
 ---
 
-## Prerequisites
+## 📌 Features
 
-- Node.js (v18.x or later)
-- MongoDB running locally on port `27017` or a MongoDB Atlas URI
-- Redis Server running on port `6379`
+- **Authentication & Security**: Secure User Registration and Login using bcrypt password hashing and JSON Web Tokens (JWT).
+- **Protected Routes**: Middleware-enforced route protection ensuring users can only read, update, or delete their own tasks.
+- **Task CRUD**: Complete task lifecycle management with `title`, `description`, `status` (*pending, in-progress, completed*), `priority` (*low, medium, high*), and `dueDate`.
+- **Redis In-Memory Caching**: Implemented on `GET /api/tasks` using cloud-hosted Upstash Redis (`rediss://`), drastically reducing database load and response latency.
+- **Cache Invalidation**: Automatic cache invalidation upon task creation, update, or deletion to prevent stale data.
+- **Search & Filtering**: Real-time task search by title/description and dropdown filtering by status and priority.
+- **Responsive Dashboard**: Dark-mode UI built with React.js featuring live status counters and cache state indicators (`⚡ Redis Cache Hit` vs `💾 MongoDB Queried`).
 
 ---
 
-## Getting Started
+## 🛠️ Technology Stack
 
-### 1. Backend Setup
-```bash
-cd backend
-npm install
-cp .env.example .env
-npm run dev
+- **Frontend**: React.js, React Router DOM, Axios, Modern CSS
+- **Backend**: Node.js, Express.js, REST APIs
+- **Database**: MongoDB Atlas, Mongoose ODM
+- **Caching**: Upstash Redis (ioredis)
+- **Authentication**: JWT (JSON Web Tokens), bcryptjs
+
+---
+
+## 📂 Project Architecture
+
+```text
+task-management-system/
+├── backend/
+│   ├── config/             # Database and Redis configurations
+│   ├── controllers/        # Business logic for auth and tasks
+│   ├── middleware/         # Auth verification and error handlers
+│   ├── models/             # Mongoose schemas (User, Task)
+│   ├── routes/             # Express API endpoints
+│   ├── utils/              # Redis cache helper functions
+│   ├── .env.example
+│   └── server.js
+├── frontend/
+│   ├── src/
+│   │   ├── api/            # Axios instance with auth interceptor
+│   │   ├── components/     # UI components (TaskCard, Filters, Modal)
+│   │   ├── pages/          # Dashboard, Login, Register
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── package.json
+└── README.md
