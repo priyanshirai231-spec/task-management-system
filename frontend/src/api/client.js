@@ -1,14 +1,20 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+// Agar VITE_API_URL set hai to wo use karega, warna localhost fallback
+const rawBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Trailing slash clean karne ke liye helper
+const baseURL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+
+const API = axios.create({
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor: Attach JWT token if present
-api.interceptors.request.use(
+// Request Interceptor: JWT Token attach karne ke liye
+API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -16,30 +22,28 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor: Handle token expiration safely
-api.interceptors.response.use(
+// Response Interceptor: 401 handling (Unauthorized)
+API.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Check if error is 401 (Unauthorized)
     if (error.response && error.response.status === 401) {
-      const isAuthEndpoint =
-        error.config?.url?.includes('/auth/login') ||
-        error.config?.url?.includes('/auth/register');
-
-      // Sirf protected routes ke token expire hone par redirect karein, login/register par nahi
-      if (!isAuthEndpoint) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // Login par redirect tabhi karein jab already login/register page par na hon
+      if (
+        !window.location.pathname.includes('/login') &&
+        !window.location.pathname.includes('/register')
+      ) {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);
   }
 );
 
-export default api;
+export default API;

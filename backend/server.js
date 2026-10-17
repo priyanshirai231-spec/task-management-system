@@ -1,131 +1,65 @@
-const path = require('path');
-// 1. Load .env directly from backend root
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+// Routes import (apne existing route imports yahan rakhein)
+import authRoutes from './routes/authRoutes.js';
+import taskRoutes from './routes/taskRoutes.js';
 
-// Import routes
-let authRoutes;
-let taskRoutes;
-try {
-  authRoutes = require('./routes/authRoutes');
-  taskRoutes = require('./routes/taskRoutes');
-} catch (err) {
-  try {
-    authRoutes = require('./src/routes/authRoutes');
-    taskRoutes = require('./src/routes/taskRoutes');
-  } catch (innerErr) {
-    console.warn('[Routes Warning]: Could not auto-detect route paths. Check folder structure.');
-  }
-}
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// 1. CORS Configuration (Allow Vercel frontend & Localhost)
+app.use(
+  cors({
+    origin: '*', // Testing aur deployment dono allow karne ke liye
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
+
+// 2. Body Parser Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sanitize MONGO_URI to remove Windows CRLF (\r\n), trailing spaces, or quotes
-const rawUri = process.env.MONGO_URI || '';
-const cleanMongoUri = rawUri.trim().replace(/[\r\n]/g, '').replace(/^["']|["']$/g, '');
-
-console.log('--------------------------------------------------');
-console.log('[Environment Check]:');
-console.log(' - PORT:', process.env.PORT || 5000);
-console.log(' - MONGO_URI Loaded?:', cleanMongoUri ? 'YES' : 'NO');
-if (cleanMongoUri) {
-  const maskedUri = cleanMongoUri.replace(/:([^:@]+)@/, ':****@');
-  console.log(' - Sanitized Target:', maskedUri);
-}
-console.log(' - REDIS_URL Loaded?:', process.env.REDIS_URL ? 'YES' : 'NO');
-console.log('--------------------------------------------------');
-
-// 2. Safe Redis Initialization (Non-blocking fallback)
-let redisClient = null;
-if (process.env.REDIS_URL) {
-  try {
-    const { createClient } = require('redis');
-    redisClient = createClient({
-      url: process.env.REDIS_URL.trim().replace(/[\r\n]/g, ''),
-      socket: {
-        reconnectStrategy: (retries) => {
-          if (retries > 1) {
-            return false; // Stop spamming logs after 1 retry
-          }
-          return 500;
-        },
-      },
-    });
-
-    redisClient.on('connect', () => console.log('[Redis]: Connected successfully.'));
-    redisClient.on('error', (err) => {
-      // Keep warnings concise
-    });
-
-    redisClient.connect().catch(() => {
-      console.warn('[Redis]: Inactive. Operating on Direct DB mode.');
-    });
-  } catch (err) {
-    console.warn('[Redis]: Module init skipped.');
-  }
-}
-
-// Attach Redis client to req object
-app.use((req, res, next) => {
-  req.redisClient = redisClient;
-  next();
+// 3. Health Check Route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Backend is running live' });
 });
 
-// API Routes
-if (authRoutes) app.use('/api/auth', authRoutes);
-if (taskRoutes) app.use('/api/tasks', taskRoutes);
+// 4. API Endpoints
+app.use('/api/auth', authRoutes);
+app.use('/api/tasks', taskRoutes);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    uptime: process.uptime(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'connecting/error',
-    redis: redisClient && redisClient.isOpen ? 'connected' : 'disabled',
-  });
-});
-
-// Global Centralized Error Handler
+// Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('[Error]:', err.stack);
-  res.status(err.statusCode || 500).json({
-    success: false,
+  console.error('[Server Error]:', err.stack);
+  res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error',
   });
 });
 
-// 3. Keep Server Alive & Connect DB with Retry
-const PORT = process.env.PORT || 5000;
-
-// Start HTTP Server immediately so Nodemon stays active and responsive
-const server = app.listen(PORT, () => {
-  console.log(`[Server]: Actively running on http://localhost:${PORT}`);
-});
-
-const connectMongoDB = async () => {
-  if (!cleanMongoUri) {
-    console.error('[Fatal Error]: MONGO_URI is missing from your .env file!');
-    return;
-  }
-
+// 5. Database Connection & Server Listen
+const connectDB = async () => {
   try {
-    await mongoose.connect(cleanMongoUri, {
-      serverSelectionTimeoutMS: 5000,
-    });
+    const mongoUri = process.env.MONGO_URI;
+    if (!mongoUri) {
+      throw new Error('MONGO_URI is not defined in environment variables');
+    }
+    await mongoose.connect(mongoUri);
     console.log('[MongoDB]: Connected successfully.');
-  } catch (err) {
-    console.error(`[MongoDB Error]: ${err.message}`);
-    console.log('[MongoDB]: Will retry connection in 8 seconds...');
-    setTimeout(connectMongoDB, 8000);
+
+    app.listen(PORT, () => {
+      console.log(`[Server]: Actively running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('[Database Connection Failed]:', error.message);
+    process.exit(1);
   }
 };
 
-connectMongoDB();
+connectDB();
