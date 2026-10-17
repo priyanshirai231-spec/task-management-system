@@ -25,7 +25,8 @@ export default function Dashboard() {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/tasks');
+      // Fixed: /api/tasks
+      const res = await api.get('/api/tasks');
       const taskData = Array.isArray(res.data) ? res.data : (res.data?.tasks || res.data?.data || []);
       setTasks(taskData);
 
@@ -58,7 +59,8 @@ export default function Dashboard() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
-      await api.delete(`/tasks/${id}`);
+      // Fixed: /api/tasks/${id}
+      await api.delete(`/api/tasks/${id}`);
       fetchTasks();
     } catch (err) {
       console.error('Failed to delete task:', err);
@@ -92,9 +94,11 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       if (editingTask) {
-        await api.put(`/tasks/${editingTask._id || editingTask.id}`, formData);
+        // Fixed: /api/tasks/${id}
+        await api.put(`/api/tasks/${editingTask._id || editingTask.id}`, formData);
       } else {
-        await api.post('/tasks', formData);
+        // Fixed: /api/tasks
+        await api.post('/api/tasks', formData);
       }
       setIsModalOpen(false);
       fetchTasks();
@@ -103,7 +107,7 @@ export default function Dashboard() {
     }
   };
 
-  // Stats Counters Fix
+  // Stats Counters
   const totalTasks = tasks.length;
   const pendingTasks = tasks.filter((t) => t.status?.toLowerCase() === 'pending').length;
   const inProgressTasks = tasks.filter(
@@ -135,7 +139,6 @@ export default function Dashboard() {
             <h1 style={styles.title}>Task Master</h1>
             <p style={styles.subtitle}>High-performance full stack task orchestrator</p>
           </div>
-          {/* Direct Navigation Links */}
           <nav style={styles.navLinks}>
             <Link to="/dashboard" style={{ ...styles.navItem, ...styles.navActive }}>
               Dashboard
